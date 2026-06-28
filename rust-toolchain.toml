@@ -1,0 +1,7 @@
+# Toolchain pin for reproducible builds. `stable` follows the latest release;
+# pin to a dated stable (stable-YYYY-MM-DD) before the first real release so the
+# same source + Cargo.lock + channel produce byte-identical artifacts.
+# See roff/rust-toolchain.toml and https://reproducible-builds.org/docs/rust/
+[toolchain]
+channel = "stable"
+profile = "minimal"

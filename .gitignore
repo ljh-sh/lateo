@@ -1,0 +1,10 @@
+/target/
+**/*.rs.bk
+*.swp
+*.swo
+*~
+.DS_Store
+**/.release-artifacts/
+
+# local agent worktrees (see mneme worktree-per-task rule)
+.worktrees/

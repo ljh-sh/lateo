@@ -1,0 +1,30 @@
+[package]
+name = "lateo"
+version = "0.0.1"
+authors = ["ljh-sh <lijunhao@x-cmd.com>"]
+edition = "2021"
+rust-version = "1.74"
+description = "Imperceptible data embedding for images: steganography (covert payload) and watermarking (robust imprint). From Latin lateo — I lie hidden."
+readme = "README.md"
+homepage = "https://github.com/ljh-sh/lateo"
+documentation = "https://github.com/ljh-sh/lateo#readme"
+license = "Apache-2.0"
+repository = "https://github.com/ljh-sh/lateo"
+keywords = ["steganography", "watermark", "image", "embedding", "cli"]
+categories = ["multimedia::images", "command-line-utilities", "cryptography"]
+exclude = [".release-artifacts/", ".github/", "target/", "*.swp", "*.swo", "*~", ".DS_Store"]
+
+[lib]
+name = "lateo"
+path = "src/lib.rs"
+
+[[bin]]
+name = "lateo"
+path = "src/main.rs"
+
+[dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
