@@ -16,6 +16,8 @@
 #![forbid(unsafe_code)]
 
 pub mod codec;
+#[cfg(feature = "encryption")]
+pub mod crypto;
 pub mod lsb;
 pub mod steg;
 pub mod util;

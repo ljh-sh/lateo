@@ -4,6 +4,9 @@
 //! - `hide` / `extract` → [`lateo::steg`] (LSB keyed-spread, fragile)
 //! - `mark` / `verify --mode fragile` → [`lateo::watermark`] (tamper detection)
 //! - `mark` / `verify --mode robust`  → [`lateo::watermark_dct`] (survives mild JPEG)
+//!
+//! `--passphrase` on `hide` / `extract` activates encrypt-then-embed (the
+//! `encryption` cargo feature must be enabled at build time).
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -38,6 +41,10 @@ enum Cmd {
         /// Payload read from a file (binary-safe).
         #[arg(short = 'M', long = "message-file")]
         message_file: Option<PathBuf>,
+        /// Encrypt the payload with this passphrase (chacha20poly1305) before
+        /// embedding. Requires building with `--features encryption`.
+        #[arg(long)]
+        passphrase: Option<String>,
         /// Output PNG (default: <image>.lateo.png).
         #[arg(short, long)]
         out: Option<PathBuf>,
@@ -48,6 +55,9 @@ enum Cmd {
         image: PathBuf,
         #[arg(short, long)]
         key: String,
+        /// Decrypt with this passphrase (requires `--features encryption`).
+        #[arg(long)]
+        passphrase: Option<String>,
     },
     /// Embed an ownership imprint (watermark).
     Mark {
@@ -102,6 +112,7 @@ fn main() -> ExitCode {
 
 const PRESENT_THRESHOLD: f64 = 0.75;
 
+#[allow(clippy::needless_return)] // the cfg-gated `return Err("--passphrase ...")` blocks are NOT the function tail
 fn run(cli: Cli) -> lateo::Result<()> {
     match cli.cmd {
         Cmd::Hide {
@@ -109,31 +120,95 @@ fn run(cli: Cli) -> lateo::Result<()> {
             key,
             message,
             message_file,
+            passphrase,
             out,
         } => {
             let payload = read_payload(message, message_file)?;
             let img = lateo::codec::load(&image)?;
-            let stego = lateo::steg::hide(&img, &payload, key.as_bytes())?;
-            let out = out.unwrap_or_else(|| default_out(&image));
-            lateo::codec::save_png(&out, &stego)?;
+            let (out_path, label) = if let Some(pass) = passphrase.as_deref() {
+                #[cfg(not(feature = "encryption"))]
+                {
+                    let _ = pass;
+                    return Err(
+                        "--passphrase requires building with `--features encryption`".into(),
+                    );
+                }
+                #[cfg(feature = "encryption")]
+                {
+                    let stego = lateo::steg::hide_encrypted(
+                        &img,
+                        &payload,
+                        key.as_bytes(),
+                        pass.as_bytes(),
+                    )?;
+                    let out = out.unwrap_or_else(|| default_out(&image));
+                    lateo::codec::save_png(&out, &stego)?;
+                    (out, "encrypted-hid")
+                }
+            } else {
+                let stego = lateo::steg::hide(&img, &payload, key.as_bytes())?;
+                let out = out.unwrap_or_else(|| default_out(&image));
+                lateo::codec::save_png(&out, &stego)?;
+                (out, "hid")
+            };
             eprintln!(
-                "lateo: hid {} bytes (capacity {} bits) -> {}",
+                "lateo: {label} {} bytes (capacity {} bits) -> {}",
                 payload.len(),
                 lateo::lsb::capacity_bits(&img),
-                out.display()
+                out_path.display()
             );
             Ok(())
         }
-        Cmd::Extract { image, key } => {
+        Cmd::Extract {
+            image,
+            key,
+            passphrase,
+        } => {
             let img = lateo::codec::load(&image)?;
-            match lateo::steg::extract(&img, key.as_bytes())? {
-                Some(payload) => {
+            if let Some(pass) = passphrase.as_deref() {
+                #[cfg(not(feature = "encryption"))]
+                {
+                    let _ = pass;
+                    return Err(
+                        "--passphrase requires building with `--features encryption`".into(),
+                    );
+                }
+                #[cfg(feature = "encryption")]
+                {
+                    match lateo::steg::extract_encrypted(&img, key.as_bytes(), pass.as_bytes())? {
+                        Some(payload) => {
+                            let mut out = std::io::stdout().lock();
+                            out.write_all(&payload)?;
+                            out.flush()?;
+                            Ok(())
+                        }
+                        None => Err(
+                            "no encrypted payload found (wrong key, wrong passphrase, or tampered)"
+                                .into(),
+                        ),
+                    }
+                }
+            } else {
+                if let Some(payload) = lateo::steg::extract(&img, key.as_bytes())? {
                     let mut out = std::io::stdout().lock();
                     out.write_all(&payload)?;
                     out.flush()?;
-                    Ok(())
+                } else {
+                    // Not plaintext — give a useful error if it's an encrypted
+                    // envelope, otherwise the generic "not found".
+                    #[cfg(feature = "encryption")]
+                    {
+                        if lateo::steg::detect_kind(&img, key.as_bytes())?.unwrap_or(false) {
+                            return Err(
+                                "this envelope is encrypted; pass --passphrase to decrypt".into()
+                            );
+                        }
+                    }
+                    return Err(
+                        "no payload found (wrong key, not a stego image, or tampered)".into(),
+                    );
                 }
-                None => Err("no payload found (wrong key, not a stego image, or tampered)".into()),
+                Ok(())
             }
         }
         Cmd::Mark {
