@@ -35,13 +35,22 @@ lateo probe   image.png                  # 反向自检:能否被检测 / 剥离
 
 ## 安装
 
+**预编译**(cosign 签名,Linux x86_64/arm64、macOS x86_64/arm64、Windows x86_64),见 [v0.0.1 release](https://github.com/ljh-sh/lateo/releases/tag/v0.0.1):
+
+```bash
+# 选对应平台的 tarball,然后:
+tar xJf lateo-<target>.tar.xz -C /usr/local/bin --strip-components=1 bin/lateo
+
+# 校验和 + 签名
+sha256sum -c SHA256SUMS --ignore-missing
+cosign verify-blob --bundle lateo-<target>.tar.xz.sigstore.json lateo-<target>.tar.xz
+```
+
 **从源码构建**(完整功能):
 
 ```bash
 cargo install --git https://github.com/ljh-sh/lateo
 ```
-
-预编译、cosign 签名的二进制(Linux x86_64/arm64、macOS x86_64/arm64、Windows x86_64)将随首个 release 附上。
 
 ## 许可
 

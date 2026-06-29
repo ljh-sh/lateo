@@ -40,14 +40,23 @@ The name is Latin ***lateo*** — *"I lie hidden"* — the root of *latent*.
 
 ## Install
 
+**Prebuilt** (cosign-signed, Linux x86_64/arm64, macOS x86_64/arm64, Windows
+x86_64) from the [v0.0.1 release](https://github.com/ljh-sh/lateo/releases/tag/v0.0.1):
+
+```bash
+# pick the tarball for your platform, then:
+tar xJf lateo-<target>.tar.xz -C /usr/local/bin --strip-components=1 bin/lateo
+
+# verify the checksum + signature
+sha256sum -c SHA256SUMS --ignore-missing
+cosign verify-blob --bundle lateo-<target>.tar.xz.sigstore.json lateo-<target>.tar.xz
+```
+
 **From source** (full feature set):
 
 ```bash
 cargo install --git https://github.com/ljh-sh/lateo
 ```
-
-Prebuilt, cosign-signed binaries (Linux x86_64/arm64, macOS x86_64/arm64,
-Windows x86_64) will attach to the first release.
 
 ## License
 
