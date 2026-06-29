@@ -19,6 +19,7 @@ pub mod codec;
 #[cfg(feature = "encryption")]
 pub mod crypto;
 pub mod lsb;
+pub mod probe;
 pub mod steg;
 pub mod util;
 pub mod watermark;

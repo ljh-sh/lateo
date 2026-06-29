@@ -87,8 +87,20 @@ enum Cmd {
         #[arg(long)]
         id: Option<String>,
     },
-    /// Reverse self-check: can the embedding be detected / stripped? (stub)
-    Probe {},
+    /// Reverse self-check: chi-square LSB analysis + bit-plane extraction.
+    /// Heuristic, not a proof — see `src/probe.rs`.
+    Probe {
+        /// Image to analyse.
+        #[arg(short, long)]
+        image: PathBuf,
+        /// Bit plane to extract (0 = LSB … 7 = MSB). Only used with --out.
+        #[arg(long, default_value_t = 0u8)]
+        plane: u8,
+        /// Write the chosen bit plane as a PNG. Default:
+        /// `<image>.probe.plane<N>.png`.
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+    },
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -265,8 +277,33 @@ fn run(cli: Cli) -> lateo::Result<()> {
                 Ok(())
             }
         },
-        Cmd::Probe {} => {
-            eprintln!("lateo: probe (steganalysis self-check) is not implemented yet");
+        Cmd::Probe { image, plane, out } => {
+            let img = lateo::codec::load(&image)?;
+            let stats = lateo::probe::analyse(&img);
+            let names = ["R", "G", "B"];
+            for (name, s) in names.iter().zip(stats.iter()) {
+                eprintln!(
+                    "lateo: probe {name} — χ²={:.1}, LSB-equalised pair fraction={:.3}",
+                    s.chi_square, s.equalised_fraction
+                );
+            }
+            eprintln!(
+                "lateo: probe verdict — {}",
+                lateo::probe::verdict(&stats, 0.65)
+            );
+            if let Some(path) = out {
+                let p = lateo::probe::bit_plane(&img, plane);
+                lateo::codec::save_png(&path, &p)?;
+                eprintln!("lateo: wrote bit plane {plane} -> {}", path.display());
+            } else {
+                // default: write a bit-plane PNG next to the image, so the
+                // user gets a visual artefact for free.
+                let mut p = image.clone();
+                p.set_extension(format!("probe.plane{plane}.png"));
+                let plane_img = lateo::probe::bit_plane(&img, plane);
+                lateo::codec::save_png(&p, &plane_img)?;
+                eprintln!("lateo: wrote bit plane {plane} -> {}", p.display());
+            }
             Ok(())
         }
     }
