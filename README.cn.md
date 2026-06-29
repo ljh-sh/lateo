@@ -9,7 +9,7 @@
 ## TL;DR
 
 ```bash
-lateo hide    image.png  -m secret.txt   # 嵌入隐秘密文(脆弱)
+lateo hide    image.png  -m 'a secret'    # 嵌入隐秘密文(脆弱)
 lateo extract image.png                  # 取回密文
 lateo mark    image.png  -i owner-id      # 嵌入鲁棒烙印
 lateo verify  image.png                  # 检查烙印是否存活

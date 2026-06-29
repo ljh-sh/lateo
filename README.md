@@ -10,7 +10,7 @@
 ## TL;DR
 
 ```bash
-lateo hide    image.png  -m secret.txt   # embed a covert payload (fragile)
+lateo hide    image.png  -m 'a secret'    # embed a covert payload (fragile)
 lateo extract image.png                  # recover it
 lateo mark    image.png  -i owner-id      # embed a robust imprint
 lateo verify  image.png                  # check the imprint survived

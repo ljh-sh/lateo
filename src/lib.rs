@@ -2,31 +2,36 @@
 //!
 //! Two complementary primitives share one engine:
 //!
-//! - **Steganography** (`hide` / `extract`): a high-capacity covert *message*.
-//!   Existence is denied; the payload is fragile (minimises statistical
-//!   detectability, does not survive re-encoding).
-//! - **Watermarking** (`mark` / `verify`): a low-capacity robust *imprint*.
-//!   Existence is asserted; the payload survives re-encoding and identifies
-//!   ownership / provenance.
+//! - **Steganography** ([`steg`], `hide` / `extract`): a high-capacity covert
+//!   *message*. Existence is denied; the payload is fragile (minimises
+//!   statistical detectability, does not survive re-encoding).
+//! - **Watermarking** ([`watermark`], `mark` / `verify`): a low-capacity robust
+//!   *imprint*. Existence is asserted; the payload survives re-encoding and
+//!   identifies ownership / provenance.
 //!
 //! The distinction is what is hidden: steganography hides a *message*,
-//! watermarking hides an *imprint*. The name is Latin *lateo* — "I lie
-//! hidden" — the root of *latent*.
-//!
-//! Status: scaffold. The CLI verbs are wired ([`Op`]) but the embedding
-//! engines are not yet implemented.
+//! watermarking hides an *imprint*. The name is Latin *lateo* — "I lie hidden"
+//! — the root of *latent*.
 
 #![forbid(unsafe_code)]
+
+pub mod codec;
+pub mod lsb;
+pub mod steg;
+pub mod util;
+pub mod watermark;
+pub mod watermark_dct;
+
+/// Boxed error. Keeps v1 dependency-light (no `thiserror`): engines return
+/// [`Result<T>`] over this, and the CLI reports the message verbatim.
+pub type Error = Box<dyn std::error::Error + Send + Sync>;
+/// Shorthand result used across the engines.
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Crate version, surfaced by `lateo --version`.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// An operation `lateo` can perform. Each variant maps 1:1 to a CLI verb.
-///
-/// Steganography and watermarking are kept as distinct operations rather than
-/// a single "hide data" call: their optimisation targets are opposed
-/// (imperceptibility-and-capacity vs. robustness), so they need separate
-/// engines even though they share the image I/O and transform plumbing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Op {
     /// Embed a covert payload. Steganography; fragile, high-capacity.
@@ -42,8 +47,7 @@ pub enum Op {
 }
 
 impl Op {
-    /// Parse a CLI verb. Returns `None` for an unknown verb so the caller can
-    /// emit a uniform "unknown subcommand" diagnostic.
+    /// Parse a CLI verb. Returns `None` for an unknown verb.
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "hide" => Some(Self::Hide),

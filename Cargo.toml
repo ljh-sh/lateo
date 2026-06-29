@@ -23,6 +23,10 @@ name = "lateo"
 path = "src/main.rs"
 
 [dependencies]
+# PNG decode/encode only (default-features off keeps JPEG/GIF/etc decoders out).
+image = { version = "0.25", default-features = false, features = ["png"] }
+# CLI argument parsing for the verbs (hide/extract/mark/verify).
+clap = { version = "4.5", features = ["derive"] }
 
 [profile.release]
 opt-level = 3
