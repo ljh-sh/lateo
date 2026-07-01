@@ -4,6 +4,8 @@
 //! - `hide` / `extract` → [`lateo::steg`] (LSB keyed-spread, fragile)
 //! - `mark` / `verify --mode fragile` → [`lateo::watermark`] (tamper detection)
 //! - `mark` / `verify --mode robust`  → [`lateo::watermark_dct`] (survives mild JPEG)
+//! - `scout`  → [`lateo::probe::scout`]  (carrier quality)
+//! - `probe`  → [`lateo::probe::analyse`] (steganalysis self-check)
 //!
 //! `--passphrase` on `hide` / `extract` activates encrypt-then-embed (the
 //! `encryption` cargo feature must be enabled at build time).
@@ -87,8 +89,14 @@ enum Cmd {
         #[arg(long)]
         id: Option<String>,
     },
-    /// Reverse self-check: chi-square LSB analysis + bit-plane extraction.
-    /// Heuristic, not a proof — see `src/probe.rs`.
+    /// Score an image's suitability as a steg carrier (capacity + baseline
+    /// stats + heuristic verdict).
+    Scout {
+        #[arg(short, long)]
+        image: PathBuf,
+    },
+    /// Steganalysis self-check (chi-square + LSB-equalised + bit-plane).
+    /// Inverse of `scout`: detects whether something is already embedded.
     Probe {
         /// Image to analyse.
         #[arg(short, long)]
@@ -277,6 +285,20 @@ fn run(cli: Cli) -> lateo::Result<()> {
                 Ok(())
             }
         },
+        Cmd::Scout { image } => {
+            let img = lateo::codec::load(&image)?;
+            let r = lateo::probe::scout(&img);
+            let names = ["R", "G", "B"];
+            eprintln!("lateo: scout — capacity: {} bytes", r.capacity_bytes);
+            for (name, s) in names.iter().zip(r.stats.iter()) {
+                eprintln!(
+                    "lateo: scout {name} — χ²={:.1}, LSB-equalised pair fraction={:.3}",
+                    s.chi_square, s.equalised_fraction
+                );
+            }
+            eprintln!("lateo: scout verdict — {}", lateo::probe::scout_verdict(&r));
+            Ok(())
+        }
         Cmd::Probe { image, plane, out } => {
             let img = lateo::codec::load(&image)?;
             let stats = lateo::probe::analyse(&img);

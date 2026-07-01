@@ -13,6 +13,8 @@
 //!
 //! Plus a **bit-plane extractor** that renders any bit plane (0 = LSB …
 //! 7 = MSB) of a channel as a black/white image so you can eyeball it.
+//! And a **carrier scout** that scores an image as a steg carrier (capacity
+//! + baseline stats + a rule-based verdict) — the inverse of `probe`.
 //!
 //! The verdict is a **heuristic** — these detectors are well-known to be
 //! fooled by natural-image structure and by adaptive embedding. A "natural"
@@ -101,6 +103,45 @@ pub fn bit_plane(img: &RgbaImage, plane: u8) -> RgbaImage {
     out
 }
 
+/// Carrier-quality report from [`scout`].
+#[derive(Debug, Clone, Copy)]
+pub struct ScoutReport {
+    /// Number of bytes that can be embedded (LSB slots / 8).
+    pub capacity_bytes: usize,
+    /// Per-channel baseline stats (chi-square + equalised fraction) of the
+    /// **unmodified** cover. A high `equalised_fraction` means the cover's
+    /// LSBs are already close to uniform — leaving little headroom for the
+    /// embedder to hide changes from chi-square detection.
+    pub stats: [ChannelStats; 3],
+}
+
+/// Score an image's suitability as a steg carrier: capacity + per-channel
+/// baseline stats (the same analysis `probe` runs on the unmodified cover).
+pub fn scout(img: &RgbaImage) -> ScoutReport {
+    ScoutReport {
+        capacity_bytes: crate::lsb::capacity_bits(img) / 8,
+        stats: analyse(img),
+    }
+}
+
+/// Heuristic verdict for a [`ScoutReport`]. Simple rule-based, deliberately
+/// not a precise "score 0..100" — we report the numbers and let the user
+/// decide.
+pub fn scout_verdict(r: &ScoutReport) -> &'static str {
+    if r.capacity_bytes < 256 {
+        "too small for any meaningful payload"
+    } else {
+        let avg_eq = r.stats.iter().map(|s| s.equalised_fraction).sum::<f64>() / 3.0;
+        if avg_eq > 0.7 {
+            "cover already looks equalised — little headroom for the embedder to hide from chi-square detection"
+        } else if r.capacity_bytes < 2048 {
+            "small capacity — fine for short text, tight for files"
+        } else {
+            "good carrier: enough capacity and a baseline that leaves detection headroom"
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,9 +180,6 @@ mod tests {
         //   R: χ² = (2²/2) + (2²/2)        = 4.0,  equalised = 0/2 = 0
         //   G: χ² = 0²/4                   = 0.0,  equalised = 1/1 = 1
         //   B: χ² = 4²/4                   = 4.0,  equalised = 0/1 = 0
-        //
-        // This pins the math (no randomness, no payload — a pure
-        // function test of `analyse`).
         let mut img = RgbaImage::new(4, 1);
         img.put_pixel(0, 0, Rgba([0, 0, 0, 0xFF]));
         img.put_pixel(1, 0, Rgba([0, 1, 0, 0xFF]));
@@ -178,5 +216,70 @@ mod tests {
         assert_eq!(plane.get_pixel(1, 0).0, [255, 255, 255, 0xFF]);
         assert_eq!(plane.get_pixel(2, 0).0, [0, 0, 0, 0xFF]);
         assert_eq!(plane.get_pixel(3, 0).0, [255, 255, 255, 0xFF]);
+    }
+
+    #[test]
+    fn scout_capacity_and_stats() {
+        // 16×16 cover with a varied (gradient-like) histogram. Capacity
+        // is exactly 16·16·3 / 8 = 96 bytes, and the per-channel stats
+        // must match a direct `analyse` call.
+        let mut img = RgbaImage::new(16, 16);
+        for y in 0..16u32 {
+            for x in 0..16u32 {
+                img.put_pixel(
+                    x,
+                    y,
+                    Rgba([
+                        (x * 7 + y * 13) as u8,
+                        (x * 11 + y) as u8,
+                        (x + y * 5) as u8,
+                        0xFF,
+                    ]),
+                );
+            }
+        }
+        let r = scout(&img);
+        assert_eq!(r.capacity_bytes, 96);
+        let a = analyse(&img);
+        assert_eq!(r.stats[0].chi_square, a[0].chi_square);
+        assert_eq!(r.stats[0].equalised_fraction, a[0].equalised_fraction);
+    }
+
+    #[test]
+    fn scout_verdict_too_small() {
+        // 2×2 → capacity 1 byte (< 256 threshold) → "too small".
+        let img = RgbaImage::new(2, 2);
+        let r = scout(&img);
+        assert_eq!(scout_verdict(&r), "too small for any meaningful payload");
+    }
+
+    #[test]
+    fn scout_verdict_good_carrier() {
+        // 128×128 gradient cover: R = (x·7)%256 and G = (y·11)%256 are
+        // cosets (equalised ≈ 0); B = (x+y)%256 is a triangle
+        // (equalised ≈ 1). Average over the three channels is well
+        // below 0.7 and capacity (6144 bytes) exceeds 2048 → "good
+        // carrier".
+        let mut img = RgbaImage::new(128, 128);
+        for y in 0..128u32 {
+            for x in 0..128u32 {
+                img.put_pixel(
+                    x,
+                    y,
+                    Rgba([
+                        (x as u8).wrapping_mul(7),
+                        (y as u8).wrapping_mul(11),
+                        (x as u8).wrapping_add(y as u8),
+                        0xFF,
+                    ]),
+                );
+            }
+        }
+        let r = scout(&img);
+        assert_eq!(r.capacity_bytes, 6144);
+        assert_eq!(
+            scout_verdict(&r),
+            "good carrier: enough capacity and a baseline that leaves detection headroom"
+        );
     }
 }

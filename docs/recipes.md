@@ -215,10 +215,39 @@ $ lateo probe -i suspect.png --out bitplane.png    # explicit output path
 
 ---
 
+## 5. Pick the best steg carrier — `lateo scout`
+
+**Scenario.** You have a folder of photos and you want to send a
+covert message. **Which photo should you use?** Different images have
+different capacities and different "baseline" equalisation (see
+recipe 4). `scout` prints both and gives a rule-based verdict, so you
+can compare candidates and pick the one that (a) is large enough for
+your payload and (b) leaves the most "headroom" for the embedder to
+hide changes from chi-square detection.
+
+```bash
+$ lateo scout -i candidates/sky.jpg
+lateo: scout — capacity: 62208 bytes
+lateo: scout R — χ²=87.4,  LSB-equalised pair fraction=0.42
+lateo: scout G — χ²=112.1, LSB-equalised pair fraction=0.45
+lateo: scout B — χ²=95.8,  LSB-equalised pair fraction=0.44
+lateo: scout verdict — good carrier: enough capacity and a baseline that leaves detection headroom
+```
+
+Run it across your candidates, then **pick the one with the highest
+capacity *and* the lowest average equalised pair fraction**.
+
+> **What this does and does *not* prove.** Scout gives you a *heuristic*
+> ranking, not a guarantee. The numbers it prints are the *baseline*
+> stats of the unmodified cover; embedding will change them, and the
+> `probe` detector (recipe 4) measures the change. A "good carrier"
+> verdict means "this image is large and its baseline is not already
+> near the detector's threshold" — it does **not** mean embedding is
+> invisible. For genuine anti-detection you need adaptive embedding
+> (J-UNIWARD, HUGO, …) which lateo does not implement.
+
 ## What's next
 
-- **`lateo scout`** — score an image as a *steg carrier*: "which of my
-  photos hides a message best?" Uses the same chi-square analysis plus
-  capacity and a noise estimate, with the recipe added to this file.
-- A new *carrier-quality* / *anti-forensic* feature pair, gated behind
-  its own cargo feature so the default build stays zero-cost.
+- **Carrier-quality / anti-forensic** features (adaptive embedding,
+  RS-analysis) — gated behind a cargo feature so the default build
+  stays zero-cost.

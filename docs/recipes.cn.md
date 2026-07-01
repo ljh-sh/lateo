@@ -151,7 +151,23 @@ $ lateo probe -i suspect.png --out bitplane.png    # 显式输出路径
 
 ---
 
+## 5. 挑一张最好的隐写载体 —— `lateo scout`
+
+**场景。** 你有一个照片文件夹,想发一条秘密消息。**该用哪张?** 不同图的容量不同、基线 equalised 也不同(见 recipe 4)。`scout` 打印两者,给一个基于规则的判定,你可以比较候选,挑一张 (a) 容量够装你的载荷、(b) 基线给嵌入器留了最多"余地"来躲 chi-square 检测的图。
+
+```bash
+$ lateo scout -i candidates/sky.jpg
+lateo: scout — capacity: 62208 bytes
+lateo: scout R — χ²=87.4,  LSB-equalised pair fraction=0.42
+lateo: scout G — χ²=112.1, LSB-equalised pair fraction=0.45
+lateo: scout B — χ²=95.8,  LSB-equalised pair fraction=0.44
+lateo: scout verdict — good carrier: enough capacity and a baseline that leaves detection headroom
+```
+
+在候选上跑一遍,**挑容量最大、且平均 equalised pair fraction 最低的那张**。
+
+> **它能/不能证明什么。** scout 给你的是**启发式**排序,不是保证。它打印的数字是**未修改**封面的基线;嵌入会改变它们,而 `probe`(recipe 4)测的就是这个改变。"good carrier" 意思是"这张图大、基线还没到检测阈值"——**不是**说嵌入就不可见。要真正的反检测,需要自适应嵌入(J-UNIWARD、HUGO 之类),lateo 没实现。
+
 ## 接下来
 
-- **`lateo scout`** —— 给图像打个"隐写载体分":"我这一堆照片,哪张最适合藏消息?"同样基于 chi-square 分析,加容量和噪点估计,recipe 也会加到本文件。
-- 新的 *载体质量 / 反取证* 特性对,放在自己的 cargo feature 后,默认 build 保持零成本。
+- **载体质量 / 反取证** 特性(自适应嵌入、RS-analysis)——放在自己的 cargo feature 后,默认 build 保持零成本。
