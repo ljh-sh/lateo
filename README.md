@@ -58,6 +58,18 @@ cosign verify-blob --bundle lateo-<target>.tar.xz.sigstore.json lateo-<target>.t
 cargo install --git https://github.com/ljh-sh/lateo
 ```
 
+## Recipes
+
+Real-world use cases with copy-pasteable commands and honest
+"what this does and does *not* prove" notes:
+
+- English: [docs/recipes.md](./docs/recipes.md)
+- 中文: [docs/recipes.cn.md](./docs/recipes.cn.md)
+
+Covers: proving photo ownership (robust watermark), tamper detection
+(fragile), sending a secret message (hide/extract, with/without
+passphrase), and the steganalysis self-check (`probe`).
+
 ## License
 
 Apache-2.0.

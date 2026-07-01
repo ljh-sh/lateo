@@ -52,6 +52,15 @@ cosign verify-blob --bundle lateo-<target>.tar.xz.sigstore.json lateo-<target>.t
 cargo install --git https://github.com/ljh-sh/lateo
 ```
 
+## 实战手册
+
+真实用例 + 可复制命令 + 诚实的"能/不能证明什么"说明:
+
+- English: [docs/recipes.md](./docs/recipes.md)
+- 中文: [docs/recipes.cn.md](./docs/recipes.cn.md)
+
+覆盖:证明照片归属(robust 水印)、篡改检测(fragile)、发送秘密消息(hide/extract,带/不带口令)、反向自检(`probe`)。
+
 ## 许可
 
 Apache-2.0。
