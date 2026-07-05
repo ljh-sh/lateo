@@ -32,7 +32,7 @@ clap = { version = "4.5", features = ["derive"] }
 # Off by default so the no-crypto build is zero-cost (invariant #4).
 chacha20poly1305 = { version = "0.10", optional = true }
 argon2 = { version = "0.5", optional = true }
-getrandom = { version = "0.3", optional = true }
+getrandom = { version = "0.4", optional = true }
 
 [features]
 default = []
