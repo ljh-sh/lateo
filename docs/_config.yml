@@ -8,8 +8,8 @@ description: Image steganography and watermarking toolkit — Rust CLI with a sh
 # our custom stylesheet is the only CSS served. (`theme: null` is
 # what Jekyll's docs recommend for "no theme".)
 theme: ~
-baseurl: "/lateo"
-url: "https://ljh-sh.github.io"
+baseurl: ""
+url: "https://lateo.ljh.sh"
 
 permalink: pretty
 
